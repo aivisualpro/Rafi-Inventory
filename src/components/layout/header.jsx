@@ -1,10 +1,11 @@
 "use client";
 
-import { Menu, Bell, Search } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { usePageHeader } from "@/contexts/page-header-context";
+import { NotificationBell } from "@/components/layout/notification-bell";
 
 export function Header({ onMenuClick }) {
   const { headerConfig } = usePageHeader();
@@ -64,10 +65,7 @@ export function Header({ onMenuClick }) {
 
         {/* Global actions */}
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="ghost" size="icon" className="relative rounded-full">
-            <Bell className="h-4.5 w-4.5" />
-            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-amber-500" />
-          </Button>
+          <NotificationBell />
           <ThemeToggle />
         </div>
       </div>

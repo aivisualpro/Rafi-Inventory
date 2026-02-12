@@ -21,7 +21,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
 import {
   Table,
@@ -31,6 +30,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -71,6 +76,15 @@ const DEFAULT_CATEGORIES = [
   "Snack",
   "Other",
 ];
+
+const categoryIcons = {
+  "Wellness Shot": "💉",
+  Smoothie: "🥤",
+  Juice: "🍊",
+  Dessert: "🍰",
+  Snack: "🍪",
+  Other: "📦",
+};
 
 const emptyForm = {
   name: "",
@@ -116,6 +130,24 @@ export default function TreetsPage() {
     ]),
   ].sort();
 
+  // Group items by category
+  const grouped = allCategories.reduce((acc, cat) => {
+    const catItems = items.filter(
+      (item) =>
+        item.category === cat &&
+        item.name.toLowerCase().includes(search.toLowerCase())
+    );
+    if (catItems.length > 0 || items.some((i) => i.category === cat)) {
+      acc[cat] = catItems;
+    }
+    return acc;
+  }, {});
+
+  // Only show tabs for categories that have items (ignoring search filter)
+  const activeCategories = allCategories.filter((cat) =>
+    items.some((i) => i.category === cat)
+  );
+
   const loadItems = useCallback(async () => {
     setLoading(true);
     try {
@@ -159,10 +191,6 @@ export default function TreetsPage() {
     return () => clearHeader();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
-
-  const filtered = items.filter((item) =>
-    item.name.toLowerCase().includes(search.toLowerCase())
-  );
 
   const openEdit = (item) => {
     setEditingItem(item);
@@ -229,123 +257,167 @@ export default function TreetsPage() {
       (c) => c.toLowerCase() === catSearch.trim().toLowerCase()
     );
 
+  const renderCategoryTable = (category) => {
+    const categoryItems = grouped[category] || [];
+    if (categoryItems.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <Cookie className="h-10 w-10 text-muted-foreground/20 mb-3" />
+          <p className="text-sm text-muted-foreground">
+            {search
+              ? "No treets match your search in this category."
+              : "No treets in this category yet."}
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent bg-muted/30">
+              <TableHead className="w-[250px] font-semibold">Name</TableHead>
+              <TableHead className="font-semibold">Date Made</TableHead>
+              <TableHead className="font-semibold">Expiration</TableHead>
+              <TableHead className="text-center font-semibold">
+                Batch
+              </TableHead>
+              <TableHead className="font-semibold">Notes</TableHead>
+              <TableHead className="w-12" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {categoryItems.map((item) => (
+              <TableRow
+                key={item._id}
+                className="group cursor-pointer"
+                onDoubleClick={() => openEdit(item)}
+              >
+                <TableCell className="font-medium">{item.name}</TableCell>
+                <TableCell className="text-sm">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                    {formatDate(item.dateMade)}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <span
+                    className={`text-sm flex items-center gap-1.5 ${
+                      isExpired(item.expirationDate)
+                        ? "text-red-600 font-semibold"
+                        : ""
+                    }`}
+                  >
+                    {isExpired(item.expirationDate) && (
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                    )}
+                    {formatDate(item.expirationDate)}
+                  </span>
+                </TableCell>
+                <TableCell className="text-center">{item.batchSize}</TableCell>
+                <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+                  {item.notes || "—"}
+                </TableCell>
+                <TableCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => openEdit(item)}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => setDeleteId(item._id)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
-      {/* Table */}
-      <Card className="border-border/40">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Cookie className="h-5 w-5 text-amber-500" />
-            All Treets
-          </CardTitle>
-          <CardDescription>
-            {filtered.length} treet{filtered.length !== 1 && "s"}
-            {search && " matching"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="p-6 space-y-3">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
+      {loading ? (
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="border-border/40">
+              <CardContent className="p-6">
+                <Skeleton className="h-6 w-48 mb-4" />
+                <Skeleton className="h-48 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : activeCategories.length === 0 ? (
+        <Card className="border-border/40">
+          <CardContent className="py-16">
+            <div className="flex flex-col items-center justify-center text-center">
               <Cookie className="h-12 w-12 text-muted-foreground/30 mb-4" />
               <p className="text-sm text-muted-foreground">
-                {items.length === 0
-                  ? "No treets yet. Add your first one!"
-                  : "No treets match your search."}
+                No treets yet. Add your first one!
               </p>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead>Name</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Date Made</TableHead>
-                    <TableHead>Expiration</TableHead>
-                    <TableHead className="text-center">Batch</TableHead>
-                    <TableHead>Notes</TableHead>
-                    <TableHead className="w-12" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((item) => (
-                    <TableRow
-                      key={item._id}
-                      className="group cursor-pointer"
-                      onDoubleClick={() => openEdit(item)}
-                    >
-                      <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="text-xs">
-                          {item.category}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        <div className="flex items-center gap-1.5">
-                          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                          {formatDate(item.dateMade)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className={`text-sm flex items-center gap-1.5 ${
-                            isExpired(item.expirationDate)
-                              ? "text-red-600 font-semibold"
-                              : ""
-                          }`}
-                        >
-                          {isExpired(item.expirationDate) && (
-                            <AlertTriangle className="h-3.5 w-3.5" />
-                          )}
-                          {formatDate(item.expirationDate)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {item.batchSize}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
-                        {item.notes || "—"}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openEdit(item)}>
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => setDeleteId(item._id)}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      ) : (
+        <Tabs
+          defaultValue={activeCategories[0]}
+          className="space-y-4"
+        >
+          <TabsList className="flex-wrap h-auto gap-1 bg-muted/50 p-1">
+            {activeCategories.map((cat) => (
+              <TabsTrigger
+                key={cat}
+                value={cat}
+                className="text-xs data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-sm"
+              >
+                <span className="mr-1.5">
+                  {categoryIcons[cat] || "📦"}
+                </span>
+                {cat}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          {activeCategories.map((cat) => (
+            <TabsContent key={cat} value={cat}>
+              <Card className="border-border/40">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Cookie className="h-5 w-5 text-amber-500" />
+                    {cat}
+                    <Badge variant="outline" className="ml-2 text-xs">
+                      {(grouped[cat] || []).length} item
+                      {(grouped[cat] || []).length !== 1 && "s"}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {renderCategoryTable(cat)}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          ))}
+        </Tabs>
+      )}
 
       {/* Add/Edit Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
