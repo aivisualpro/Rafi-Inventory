@@ -3,6 +3,8 @@ import {
   TrendingDown,
   ClipboardCheck,
   AlertTriangle,
+  Clock,
+  XCircle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,15 +15,26 @@ import { DashboardHeader } from "./dashboard-header";
 
 async function getStats() {
   await dbConnect();
+  const now = new Date();
+  const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
 
-  const [totalItems, categories, lowStock, treetCount] = await Promise.all([
+  const [
+    totalItems,
+    categories,
+    lowStock,
+    treetCount,
+    zeroStock,
+    expiredTreets,
+    nearExpiryTreets,
+  ] = await Promise.all([
     Inventory.countDocuments(),
     Inventory.distinct("category"),
-    Inventory.find({ currentStock: { $lte: 2 }, currentStock: { $gt: 0 } }).countDocuments(),
+    Inventory.countDocuments({ currentStock: { $gt: 0, $lte: 2 } }),
     Treet.countDocuments(),
+    Inventory.countDocuments({ currentStock: 0 }),
+    Treet.countDocuments({ expirationDate: { $lt: now, $ne: null } }),
+    Treet.countDocuments({ expirationDate: { $gte: now, $lte: threeDaysFromNow } }),
   ]);
-
-  const zeroStock = await Inventory.countDocuments({ currentStock: 0 });
 
   const categoryBreakdown = await Inventory.aggregate([
     { $group: { _id: "$category", count: { $sum: 1 } } },
@@ -39,6 +52,8 @@ async function getStats() {
     lowStock,
     zeroStock,
     treetCount,
+    expiredTreets,
+    nearExpiryTreets,
     categoryBreakdown,
     recentItems,
   };
@@ -86,6 +101,22 @@ export default async function DashboardPage() {
       icon: ClipboardCheck,
       desc: "Wellness shots & smoothies",
       gradient: "from-green-500 to-emerald-600",
+      extra: [
+        stats.nearExpiryTreets > 0 && {
+          label: "Near Expiry",
+          count: stats.nearExpiryTreets,
+          icon: Clock,
+          color: "text-amber-600 dark:text-amber-400",
+          bg: "bg-amber-100 dark:bg-amber-900/30",
+        },
+        stats.expiredTreets > 0 && {
+          label: "Expired",
+          count: stats.expiredTreets,
+          icon: XCircle,
+          color: "text-red-600 dark:text-red-400",
+          bg: "bg-red-100 dark:bg-red-900/30",
+        },
+      ].filter(Boolean),
     },
   ];
 
@@ -116,6 +147,24 @@ export default async function DashboardPage() {
             <CardContent>
               <div className="text-3xl font-bold">{stat.value}</div>
               <p className="text-xs text-muted-foreground mt-1">{stat.desc}</p>
+              {stat.extra && stat.extra.length > 0 && (
+                <div className="flex gap-2 mt-3">
+                  {stat.extra.map((e) => (
+                    <div
+                      key={e.label}
+                      className={`flex items-center gap-1.5 rounded-md px-2 py-1 ${e.bg}`}
+                    >
+                      <e.icon className={`h-3.5 w-3.5 ${e.color}`} />
+                      <span className={`text-xs font-semibold ${e.color}`}>
+                        {e.count}
+                      </span>
+                      <span className={`text-[10px] ${e.color} opacity-75`}>
+                        {e.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         ))}
