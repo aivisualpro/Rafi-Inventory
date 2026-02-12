@@ -9,6 +9,7 @@ import {
   Cookie,
   ClipboardList,
   Truck,
+  ShoppingCart,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ const navigation = [
       { name: "Par Sheets", href: "/par-sheets", icon: ClipboardList },
       { name: "Treets", href: "/treets", icon: Cookie },
       { name: "Vendors", href: "/vendors", icon: Truck },
+      { name: "Orders", href: "/orders", icon: ShoppingCart },
     ],
   },
 ];

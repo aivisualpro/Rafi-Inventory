@@ -137,6 +137,16 @@ export default function InventoryPage() {
     setModalOpen(true);
   };
 
+
+  const filtered = items.filter((item) => {
+    const matchSearch =
+      item.name.toLowerCase().includes(search.toLowerCase()) ||
+      (item.code && item.code.includes(search));
+    const matchCategory =
+      filterCategory === "all" || item.category === filterCategory;
+    return matchSearch && matchCategory;
+  });
+
   // Header description from active filter
   const headerDesc =
     filterCategory === "all"
@@ -222,15 +232,6 @@ export default function InventoryPage() {
       toast.error("Failed to delete item");
     }
   };
-
-  const filtered = items.filter((item) => {
-    const matchSearch =
-      item.name.toLowerCase().includes(search.toLowerCase()) ||
-      (item.code && item.code.includes(search));
-    const matchCategory =
-      filterCategory === "all" || item.category === filterCategory;
-    return matchSearch && matchCategory;
-  });
 
   return (
     <div className="space-y-6">
