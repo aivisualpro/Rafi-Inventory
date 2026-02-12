@@ -19,8 +19,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   Table,
@@ -113,6 +111,7 @@ export default function TreetsPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
@@ -171,10 +170,17 @@ export default function TreetsPage() {
     setModalOpen(true);
   };
 
+  // Build header description from active tab
+  const activeCount = activeTab ? (grouped[activeTab] || []).length : 0;
+  const headerDesc = activeTab
+    ? `${categoryIcons[activeTab] || "📦"} ${activeTab} · ${activeCount} item${activeCount !== 1 ? "s" : ""}`
+    : undefined;
+
   // Push title, search, and Add button into the main header
   useEffect(() => {
     setHeaderConfig({
       title: "Treets",
+      description: headerDesc,
       searchValue: search,
       onSearchChange: setSearch,
       searchPlaceholder: "Search treets...",
@@ -190,7 +196,7 @@ export default function TreetsPage() {
     });
     return () => clearHeader();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+  }, [search, activeTab, activeCount]);
 
   const openEdit = (item) => {
     setEditingItem(item);
@@ -380,6 +386,8 @@ export default function TreetsPage() {
       ) : (
         <Tabs
           defaultValue={activeCategories[0]}
+          value={activeTab || activeCategories[0]}
+          onValueChange={setActiveTab}
           className="space-y-4"
         >
           <TabsList className="flex-wrap h-auto gap-1 bg-muted/50 p-1">
@@ -400,16 +408,6 @@ export default function TreetsPage() {
           {activeCategories.map((cat) => (
             <TabsContent key={cat} value={cat}>
               <Card className="border-border/40">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Cookie className="h-5 w-5 text-amber-500" />
-                    {cat}
-                    <Badge variant="outline" className="ml-2 text-xs">
-                      {(grouped[cat] || []).length} item
-                      {(grouped[cat] || []).length !== 1 && "s"}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
                 <CardContent className="p-0">
                   {renderCategoryTable(cat)}
                 </CardContent>
