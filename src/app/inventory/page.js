@@ -7,7 +7,6 @@ import {
   Trash2,
   Package,
   MoreHorizontal,
-  Filter,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,9 +15,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
 import {
   Table,
@@ -28,6 +24,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -65,6 +66,18 @@ const CATEGORIES = [
 ];
 
 const UNITS = ["each", "case", "lb", "oz", "bag", "bunch", "gallon", "dozen"];
+
+const categoryIcons = {
+  all: "📋",
+  "Juicing Produce": "🧃",
+  "Produce for Daily Use": "🥬",
+  "Frozen Goods": "🧊",
+  Bread: "🍞",
+  "Dairy/Liquid": "🥛",
+  Herbs: "🌿",
+  "Salad Items": "🥗",
+  Other: "📦",
+};
 
 const categoryColors = {
   "Juicing Produce": "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
@@ -124,11 +137,17 @@ export default function InventoryPage() {
     setModalOpen(true);
   };
 
+  // Header description from active filter
+  const headerDesc =
+    filterCategory === "all"
+      ? `${filtered.length} item${filtered.length !== 1 ? "s" : ""} across all categories`
+      : `${categoryIcons[filterCategory] || "📦"} ${filterCategory} · ${filtered.length} item${filtered.length !== 1 ? "s" : ""}`;
+
   // Push title, search, and Add button into the main header
   useEffect(() => {
     setHeaderConfig({
       title: "Inventory",
-      description: "Kitchen inventory items & par levels",
+      description: headerDesc,
       searchValue: search,
       onSearchChange: setSearch,
       searchPlaceholder: "Search by name or code...",
@@ -144,7 +163,7 @@ export default function InventoryPage() {
     });
     return () => clearHeader();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+  }, [search, filterCategory, filtered.length]);
 
   const openEdit = (item) => {
     setEditingItem(item);
@@ -215,42 +234,31 @@ export default function InventoryPage() {
 
   return (
     <div className="space-y-6">
-      {/* Category filter */}
-      <Card className="border-border/40">
-        <CardContent className="pt-6">
-          <Select value={filterCategory} onValueChange={setFilterCategory}>
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <Filter className="mr-2 h-4 w-4" />
-              <SelectValue placeholder="All Categories" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {CATEGORIES.map((cat) => (
-                <SelectItem key={cat} value={cat}>
-                  {cat}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
+      {/* Category tabs */}
+      <Tabs value={filterCategory} onValueChange={setFilterCategory}>
+        <TabsList className="flex-wrap h-auto gap-1 bg-muted/50 p-1">
+          <TabsTrigger
+            value="all"
+            className="text-xs data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-sm"
+          >
+            <span className="mr-1.5">📋</span>
+            All
+          </TabsTrigger>
+          {CATEGORIES.map((cat) => (
+            <TabsTrigger
+              key={cat}
+              value={cat}
+              className="text-xs data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-sm"
+            >
+              <span className="mr-1.5">{categoryIcons[cat] || "📦"}</span>
+              {cat}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
       {/* Table */}
       <Card className="border-border/40">
-        <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Package className="h-5 w-5 text-amber-500" />
-                All Items
-              </CardTitle>
-              <CardDescription>
-                {filtered.length} item{filtered.length !== 1 && "s"}
-                {filterCategory !== "all" && ` in ${filterCategory}`}
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
         <CardContent className="p-0">
           {loading ? (
             <div className="p-6 space-y-3">
