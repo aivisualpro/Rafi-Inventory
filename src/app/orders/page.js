@@ -306,7 +306,30 @@ export default function OrdersPage() {
       toast.error("Add at least one item with quantity > 0");
       return;
     }
-    setSaving(true);
+
+    // Snapshot for rollback
+    const prevOrders = orders;
+
+    // Optimistic create with temp data
+    const tempOrder = {
+      _id: `temp-${Date.now()}`,
+      orderNumber: `ORD-...`,
+      vendor: selectedVendor._id,
+      vendorName: selectedVendor.name,
+      items: validItems,
+      totalItems: validItems.reduce((s, i) => s + (Number(i.orderQty) || 0), 0),
+      notes: orderNotes,
+      expectedDelivery: expectedDelivery || null,
+      orderDate: new Date().toISOString(),
+      status: "draft",
+      _temp: true,
+    };
+    setOrders((prev) => [tempOrder, ...prev]);
+    toast.success("Order created!");
+    setCreateOpen(false);
+    setSaving(false);
+
+    // Background API call
     try {
       const res = await fetch("/api/orders", {
         method: "POST",
@@ -320,18 +343,33 @@ export default function OrdersPage() {
         }),
       });
       if (!res.ok) throw new Error("Failed");
-      toast.success("Order created!");
-      setCreateOpen(false);
-      loadOrders();
+      // Sync to get real data
+      const freshRes = await fetch("/api/orders");
+      if (freshRes.ok) setOrders(await freshRes.json());
     } catch {
-      toast.error("Failed to create order");
-    } finally {
-      setSaving(false);
+      setOrders(prevOrders);
+      toast.error("Failed to create order \u2014 reverted");
     }
   };
 
   /* ─── Status update ────────────────────────── */
   const updateStatus = async (orderId, newStatus) => {
+    // Snapshot for rollback
+    const prevOrders = orders;
+    const prevDetail = detailOrder;
+
+    // Optimistic update
+    setOrders((prev) =>
+      prev.map((o) =>
+        o._id === orderId ? { ...o, status: newStatus, ...(newStatus === 'received' ? { receivedDate: new Date().toISOString() } : {}) } : o
+      )
+    );
+    if (detailOrder?._id === orderId) {
+      setDetailOrder({ ...detailOrder, status: newStatus });
+    }
+    toast.success(`Order marked as ${statusConfig[newStatus]?.label}`);
+
+    // Background API call
     try {
       const body = { status: newStatus };
       if (newStatus === "received") body.receivedDate = new Date();
@@ -341,28 +379,33 @@ export default function OrdersPage() {
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error("Failed");
-      toast.success(`Order marked as ${statusConfig[newStatus]?.label}`);
-      loadOrders();
-      if (detailOrder?._id === orderId) {
-        setDetailOrder({ ...detailOrder, status: newStatus });
-      }
     } catch {
-      toast.error("Failed to update order");
+      setOrders(prevOrders);
+      if (prevDetail) setDetailOrder(prevDetail);
+      toast.error("Failed to update order \u2014 reverted");
     }
   };
 
   /* ─── Delete ───────────────────────────────── */
   const handleDelete = async () => {
     if (!deleteId) return;
+
+    // Snapshot for rollback
+    const prevOrders = orders;
+
+    // Optimistic remove
+    setOrders((prev) => prev.filter((o) => o._id !== deleteId));
+    toast.success("Order deleted");
+    if (detailOrder?._id === deleteId) setDetailOpen(false);
+    setDeleteId(null);
+
+    // Background API call
     try {
       const res = await fetch(`/api/orders/${deleteId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed");
-      toast.success("Order deleted");
-      setDeleteId(null);
-      if (detailOrder?._id === deleteId) setDetailOpen(false);
-      loadOrders();
     } catch {
-      toast.error("Failed to delete order");
+      setOrders(prevOrders);
+      toast.error("Failed to delete order \u2014 reverted");
     }
   };
 

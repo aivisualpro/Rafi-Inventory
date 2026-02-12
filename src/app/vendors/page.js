@@ -176,40 +176,69 @@ export default function VendorsPage() {
       toast.error("Vendor name is required");
       return;
     }
-    setSaving(true);
+
+    // Snapshot for rollback
+    const prevItems = items;
+    const isEdit = !!editingItem;
+
+    if (isEdit) {
+      // Optimistic update
+      setItems((prev) =>
+        prev.map((it) =>
+          it._id === editingItem._id ? { ...it, ...formData } : it
+        )
+      );
+    } else {
+      // Optimistic create
+      const tempItem = { ...formData, _id: `temp-${Date.now()}`, _temp: true };
+      setItems((prev) => [tempItem, ...prev]);
+    }
+
+    toast.success(isEdit ? "Vendor updated" : "Vendor added");
+    setModalOpen(false);
+    setSaving(false);
+
+    // Background API call
     try {
-      const url = editingItem
+      const url = isEdit
         ? `/api/vendors/${editingItem._id}`
         : "/api/vendors";
-      const method = editingItem ? "PUT" : "POST";
+      const method = isEdit ? "PUT" : "POST";
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
       if (!res.ok) throw new Error("Failed");
-      toast.success(editingItem ? "Vendor updated" : "Vendor added");
-      setModalOpen(false);
-      loadItems();
+      // Silently sync to get real IDs
+      const freshRes = await fetch("/api/vendors");
+      if (freshRes.ok) setItems(await freshRes.json());
     } catch {
-      toast.error("Failed to save vendor");
-    } finally {
-      setSaving(false);
+      setItems(prevItems);
+      toast.error("Failed to save vendor \u2014 reverted");
     }
   };
 
   const handleDelete = async () => {
     if (!deleteId) return;
+
+    // Snapshot for rollback
+    const prevItems = items;
+
+    // Optimistic remove
+    setItems((prev) => prev.filter((it) => it._id !== deleteId));
+    toast.success("Vendor deleted");
+    setDeleteId(null);
+
+    // Background API call
     try {
       const res = await fetch(`/api/vendors/${deleteId}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed");
-      toast.success("Vendor deleted");
-      setDeleteId(null);
-      loadItems();
     } catch {
-      toast.error("Failed to delete vendor");
+      setItems(prevItems);
+      toast.error("Failed to delete vendor \u2014 reverted");
     }
   };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Plus,
   Pencil,
@@ -196,40 +196,69 @@ export default function InventoryPage() {
       toast.error("Item name is required");
       return;
     }
-    setSaving(true);
+
+    // Snapshot for rollback
+    const prevItems = items;
+    const isEdit = !!editingItem;
+
+    if (isEdit) {
+      // Optimistic update
+      setItems((prev) =>
+        prev.map((it) =>
+          it._id === editingItem._id ? { ...it, ...formData } : it
+        )
+      );
+    } else {
+      // Optimistic create with temp id
+      const tempItem = { ...formData, _id: `temp-${Date.now()}`, _temp: true };
+      setItems((prev) => [tempItem, ...prev]);
+    }
+
+    toast.success(isEdit ? "Item updated" : "Item created");
+    setModalOpen(false);
+    setSaving(false);
+
+    // Background API call
     try {
-      const url = editingItem
+      const url = isEdit
         ? `/api/inventory/${editingItem._id}`
         : "/api/inventory";
-      const method = editingItem ? "PUT" : "POST";
+      const method = isEdit ? "PUT" : "POST";
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
       if (!res.ok) throw new Error("Failed");
-      toast.success(editingItem ? "Item updated" : "Item created");
-      setModalOpen(false);
-      loadItems();
+      // Silently sync to get real IDs
+      const freshRes = await fetch("/api/inventory");
+      if (freshRes.ok) setItems(await freshRes.json());
     } catch {
-      toast.error("Failed to save item");
-    } finally {
-      setSaving(false);
+      setItems(prevItems);
+      toast.error("Failed to save item — reverted");
     }
   };
 
   const handleDelete = async () => {
     if (!deleteId) return;
+
+    // Snapshot for rollback
+    const prevItems = items;
+
+    // Optimistic remove
+    setItems((prev) => prev.filter((it) => it._id !== deleteId));
+    toast.success("Item deleted");
+    setDeleteId(null);
+
+    // Background API call
     try {
       const res = await fetch(`/api/inventory/${deleteId}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed");
-      toast.success("Item deleted");
-      setDeleteId(null);
-      loadItems();
     } catch {
-      toast.error("Failed to delete item");
+      setItems(prevItems);
+      toast.error("Failed to delete item — reverted");
     }
   };
 

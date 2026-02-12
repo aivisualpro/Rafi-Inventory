@@ -120,9 +120,26 @@ export default function ParSheetsPage() {
       return;
     }
 
-    setSaving(true);
+    // Snapshot for rollback
+    const prevItems = items;
+    const prevEdits = edits;
+
+    // Optimistic: apply edits to items instantly
+    setItems((prev) =>
+      prev.map((item) => {
+        if (edits[item._id]) {
+          return { ...item, ...edits[item._id] };
+        }
+        return item;
+      })
+    );
+    setEdits({});
+    toast.success(`Saved ${editEntries.length} item(s)`);
+    setSaving(false);
+
+    // Background API calls
     try {
-      await Promise.all(
+      const results = await Promise.all(
         editEntries.map(([id, data]) =>
           fetch(`/api/inventory/${id}`, {
             method: "PUT",
@@ -131,13 +148,11 @@ export default function ParSheetsPage() {
           })
         )
       );
-      toast.success(`Saved ${editEntries.length} item(s)`);
-      setEdits({});
-      loadItems();
+      if (results.some((r) => !r.ok)) throw new Error("Partial failure");
     } catch {
-      toast.error("Failed to save changes");
-    } finally {
-      setSaving(false);
+      setItems(prevItems);
+      setEdits(prevEdits);
+      toast.error("Failed to save changes \u2014 reverted");
     }
   };
 

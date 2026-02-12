@@ -218,38 +218,67 @@ export default function TreetsPage() {
       toast.error("Treet name is required");
       return;
     }
-    setSaving(true);
+
+    // Snapshot for rollback
+    const prevItems = items;
+    const isEdit = !!editingItem;
+
+    if (isEdit) {
+      // Optimistic update
+      setItems((prev) =>
+        prev.map((it) =>
+          it._id === editingItem._id ? { ...it, ...formData } : it
+        )
+      );
+    } else {
+      // Optimistic create
+      const tempItem = { ...formData, _id: `temp-${Date.now()}`, _temp: true };
+      setItems((prev) => [tempItem, ...prev]);
+    }
+
+    toast.success(isEdit ? "Treet updated" : "Treet created");
+    setModalOpen(false);
+    setSaving(false);
+
+    // Background API call
     try {
-      const url = editingItem
+      const url = isEdit
         ? `/api/treets/${editingItem._id}`
         : "/api/treets";
-      const method = editingItem ? "PUT" : "POST";
+      const method = isEdit ? "PUT" : "POST";
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
       if (!res.ok) throw new Error("Failed");
-      toast.success(editingItem ? "Treet updated" : "Treet created");
-      setModalOpen(false);
-      loadItems();
+      // Silently sync to get real IDs
+      const freshRes = await fetch("/api/treets");
+      if (freshRes.ok) setItems(await freshRes.json());
     } catch {
-      toast.error("Failed to save treet");
-    } finally {
-      setSaving(false);
+      setItems(prevItems);
+      toast.error("Failed to save treet \u2014 reverted");
     }
   };
 
   const handleDelete = async () => {
     if (!deleteId) return;
+
+    // Snapshot for rollback
+    const prevItems = items;
+
+    // Optimistic remove
+    setItems((prev) => prev.filter((it) => it._id !== deleteId));
+    toast.success("Treet deleted");
+    setDeleteId(null);
+
+    // Background API call
     try {
       const res = await fetch(`/api/treets/${deleteId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed");
-      toast.success("Treet deleted");
-      setDeleteId(null);
-      loadItems();
     } catch {
-      toast.error("Failed to delete treet");
+      setItems(prevItems);
+      toast.error("Failed to delete treet \u2014 reverted");
     }
   };
 
