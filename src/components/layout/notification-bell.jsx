@@ -56,6 +56,7 @@ export function NotificationBell() {
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [severityFilter, setSeverityFilter] = useState("all");
 
   const fetchAlerts = useCallback(async () => {
     setLoading(true);
@@ -87,8 +88,14 @@ export function NotificationBell() {
   const warningCount = alerts.filter((a) => a.severity === "warning").length;
   const infoCount = alerts.filter((a) => a.severity === "info").length;
 
-  // Group alerts by type
-  const grouped = alerts.reduce((acc, alert) => {
+  // Filter by severity tab
+  const filteredAlerts =
+    severityFilter === "all"
+      ? alerts
+      : alerts.filter((a) => a.severity === severityFilter);
+
+  // Group filtered alerts by type
+  const grouped = filteredAlerts.reduce((acc, alert) => {
     const label =
       alert.type === "expired"
         ? "Expired Treets"
@@ -143,23 +150,58 @@ export function NotificationBell() {
             </Button>
           </div>
 
-          {/* Summary pills */}
+          {/* Filter tabs */}
           {count > 0 && (
-            <div className="flex gap-2">
+            <div className="flex gap-1 bg-muted/50 rounded-lg p-1">
+              <button
+                onClick={() => setSeverityFilter("all")}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer",
+                  severityFilter === "all"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                )}
+              >
+                All ({count})
+              </button>
               {criticalCount > 0 && (
-                <Badge className="bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400 border-0 text-xs">
+                <button
+                  onClick={() => setSeverityFilter(severityFilter === "critical" ? "all" : "critical")}
+                  className={cn(
+                    "px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer",
+                    severityFilter === "critical"
+                      ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 shadow-sm"
+                      : "text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 dark:hover:text-red-400"
+                  )}
+                >
                   {criticalCount} Critical
-                </Badge>
+                </button>
               )}
               {warningCount > 0 && (
-                <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 border-0 text-xs">
+                <button
+                  onClick={() => setSeverityFilter(severityFilter === "warning" ? "all" : "warning")}
+                  className={cn(
+                    "px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer",
+                    severityFilter === "warning"
+                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 shadow-sm"
+                      : "text-muted-foreground hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/10 dark:hover:text-amber-400"
+                  )}
+                >
                   {warningCount} Warning
-                </Badge>
+                </button>
               )}
               {infoCount > 0 && (
-                <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border-0 text-xs">
+                <button
+                  onClick={() => setSeverityFilter(severityFilter === "info" ? "all" : "info")}
+                  className={cn(
+                    "px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer",
+                    severityFilter === "info"
+                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 shadow-sm"
+                      : "text-muted-foreground hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/10 dark:hover:text-blue-400"
+                  )}
+                >
                   {infoCount} Info
-                </Badge>
+                </button>
               )}
             </div>
           )}
